@@ -179,7 +179,7 @@ if __name__ == '__main__':
     ap.add_argument("-m", "--path_to_model", required=False,
             help="path to old nn model")
     ap.add_argument("-p", "--tt_split", required=True,
-            help="")
+            help="test/train split percentage")
     args = vars(ap.parse_args())
 
 
@@ -214,9 +214,9 @@ if __name__ == '__main__':
     X_train, X_test, Y_train, Y_test = load_data(d_trig, d_darm, train_perc)
 
     #Making predicted DARM RMS time series and retrieving overall score of run
-    if args['tt_split'] == True:
+    if args['test_only'] == True:
         predic, perf_score = old_nn(X_train, X_test, Y_train, Y_test, args['path_to_model'])
-    elif args['tt_split'] == False:
+    elif args['test_only'] == False:
         predic, perf_score, mod, hist = keras_nn(X_train, X_test, Y_train, Y_test)
 
     #Plotting the results and other figures of merit 
