@@ -9,50 +9,20 @@ from gwpy.frequencyseries import FrequencySeries
 from gwpy.segments import DataQualityFlag
 
 import fir
-
-def get_science_segments(ifo, st, et, min_length=1800):
-    scimode=DataQualityFlag.query(ifo+':DMT-ANALYSIS_READY:1',st,et)
-    print scimode.known
-    print scimode.active
-    bad_segs=[flg for flg in scimode.active if abs(flg) < min_length]
-    for flg in bad_segs:
-        scimode.active.remove(flg)
-    return scimode.active
-
-def load_channels(channel_file):
-    with open(channel_file) as ff:
-        channel_list=[line.split()[0] for line in ff]
-    return channel_list
-
-def chunk_segments(seg_lst, chunk_size, pad_size):
-    """Split a segment list into chunks, respecting padding"""
-    assert chunk_size > 2*pad_size
-    for seg in seg_lst:
-        t1,t2=int(seg.start),int(seg.end)
-        duration=t2-t1
-        for tt in xrange(0, duration-2*pad_size, chunk_size-2*pad_size):
-            if tt+chunk_size<duration:
-                yield (t1+tt,t1+tt+chunk_size)
-            elif tt+2*pad_size<duration:
-                yield (t1+tt,t1+duration)
+from utils import chunk_segments, load_channels
 
 if __name__ == "__main__":
-    ifo=sys.argv[1]
-    st=int(sys.argv[2])
-    et=int(sys.argv[3])
-    chan_file=sys.argv[4]
+    segment_file=sys.argv[1]
+    chan_file=sys.argv[2]
+    
+    sci_segs=DataQualityFlag.read(segment_file) 
+    ifo=sci_segs.ifo
+    segs=sci_segs.active
+    
+    chan_lst=load_channels(chan_file)
 
     chunk=16384
     pad=256
-
-    target_chan=ifo+':GDS-CALIB_STRAIN'
-
-    chan_lst=load_channels(chan_file)
-
-    segs=get_science_segments(ifo,st,et)
-    for seg in segs:
-        print seg.start, seg.end
-
 
     full_data=[]
     for chan in chan_lst:
@@ -72,5 +42,4 @@ if __name__ == "__main__":
     # Turn into a big array and dump to a file
     full_data=array(full_data)
     save("%s-ML-%u-%u.npy"%(ifo,st,et-st),full_data)
-
 
