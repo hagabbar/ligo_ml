@@ -22,8 +22,8 @@ def get_science_segments(ifo, st, et, min_length=1800):
 
 if __name__ == "__main__":
     ifo=sys.argv[1]
-    st=sys.argv[2]
-    et=sys.argv[3]
+    st=int(sys.argv[2])
+    et=int(sys.argv[3])
 
     scimode = get_science_segments(ifo, st, et)
     scimode.write('%s-SCISEGS-%u-%u.hdf'%(ifo,st,et-st))
