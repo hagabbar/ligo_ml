@@ -1,0 +1,11 @@
+universe=vanilla
+executable=./target_timeseries_features.py
+arguments="--ifo $(ifo) --start-time $(st) --end-time $(et)"
+output=/dev/null
+error=target.$(Process).err
+log=target.log
+accounting_group = ligo.dev.o2.detchar.explore.test
+RequestMemory=4000
+RequestCpus=4
+getenv=True
+queue 1
