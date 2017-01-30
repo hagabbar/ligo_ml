@@ -9,6 +9,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout
 from keras.layers.recurrent import LSTM
 from keras.optimizers import SGD
+from keras.models import load_model
 import sys
 import os
 from math import exp, log
@@ -110,13 +111,13 @@ def plotter(predic, Y_test, out_dir, now, model, hist):
 
 def load_data(X_data,Y_data,t_perc):
     #Creating a mask
-    Y_data = Y_data[:-1]
+    Y_data = Y_data
     mask = Y_data<1.2
     Y_data = Y_data[mask]
     X_data = X_data[:,mask]
 
     #Initializing parameters
-    X_data = X_data.T       #[:,246:269]
+    X_data = X_data.T[:,246:281]       #[:,246:269]
     Y_data = Y_data.T
 
     Y_data = log(Y_data)
@@ -147,7 +148,7 @@ def shuffle_stat(Y_test):
 def old_nn(X_train, X_test, Y_train, Y_test, s_mod):
     #Loading saved nn model
     model = load_model('%s' % s_mod)
-
+    
     #Predicitng on test set
     print("[INFO] Predicting on test set...")
     score = model.predict(X_test, batch_size=32)
@@ -159,7 +160,7 @@ def old_nn(X_train, X_test, Y_train, Y_test, s_mod):
     perf_score = np.mean(Y_test * abs(score.flatten() - Y_test))
     print('Your overall score for the run is (the lower, the better): %f' % perf_score)
 
-    return score, perf_score
+    return score, perf_score, model
 
 if __name__ == '__main__':
     #construct the argument parse and parse the arguments
@@ -184,7 +185,7 @@ if __name__ == '__main__':
 
 
     #Specify parameters
-    train_perc =args['tt_split']
+    train_perc =float(args['tt_split'])
     d_trig = np.load(args['dataset'].split(',')[0])
     d_darm = np.load(args['dataset'].split(',')[1])
     
@@ -207,23 +208,31 @@ if __name__ == '__main__':
     #Get current time for time stamp labels
     now = datetime.datetime.now() 
 
-    #Make output directory
-    os.makedirs('%s/run_%s' % (out_dir,now))
-        
     #Load data and seperate into training/test sets
     X_train, X_test, Y_train, Y_test = load_data(d_trig, d_darm, train_perc)
 
     #Making predicted DARM RMS time series and retrieving overall score of run
-    if args['test_only'] == True:
-        predic, perf_score = old_nn(X_train, X_test, Y_train, Y_test, args['path_to_model'])
-    elif args['test_only'] == False:
+    if args['test_only'] == 'True':
+        predic, perf_score, mod = old_nn(X_train, X_test, Y_train, Y_test, args['path_to_model'])
+        
+    elif args['test_only'] == 'False':
         predic, perf_score, mod, hist = keras_nn(X_train, X_test, Y_train, Y_test)
 
+    #Make output directory
+    os.makedirs('%s/run_%s' % (out_dir,now))
+
     #Plotting the results and other figures of merit 
-    plotter(predic, Y_test, out_dir, now, mod, hist)
+    if args['test_only'] == 'True':
+        hist = []
+        plotter(predic, Y_test, out_dir, now, mod, hist)
+    elif args['test_only'] == 'False':
+        plotter(predic, Y_test, out_dir, now, mod, hist)
 
     #Calculating the time statistic
     time_stat(Y_test)
+    
+    #Save the overall score of the run
+    np.save('%s/run_%s/run_score.npy' % (out_dir,now), perf_score)
 
     #Calculating the shuffle statistic
     shuffle_stat(Y_test)    
