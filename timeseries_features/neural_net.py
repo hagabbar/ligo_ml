@@ -112,13 +112,15 @@ def plotter(predic, Y_test, out_dir, now, model, hist):
 def load_data(X_data,Y_data,t_perc):
     #Creating a mask
     Y_data = Y_data
-    mask = Y_data<1.2
+    mask = Y_data < 1.2        #<1.2
     Y_data = Y_data[mask]
     X_data = X_data[:,mask]
 
     #Initializing parameters
-    X_data = X_data.T[:,246:281]       #[:,246:269]
+    X_data = X_data.T       #[:,246:269]
     Y_data = Y_data.T
+     
+    Y_transform = Y_data
 
     Y_data = log(Y_data)
     Y_data = (Y_data - Y_data.min()) / (Y_data.max() - Y_data.min())
@@ -127,7 +129,25 @@ def load_data(X_data,Y_data,t_perc):
     X_train, X_test = X_data[:int(len(X_data)*t_perc),:]/X_data[:int(len(X_data)*t_perc),:].max(), X_data[int(len(X_data)*t_perc):len(X_data),:]/X_data[int(len(X_data)*t_perc):len(X_data),:].max()
     Y_train, Y_test = Y_data[:int(len(X_data)*t_perc)], Y_data[int(len(X_data)*t_perc):len(X_data)]
 
-    return X_train, X_test, Y_train, Y_test
+    return X_train, X_test, Y_train, Y_test, Y_transform
+
+def load_data_testing(X_data,Y_data, Y_transform):
+    #Initializing parameters
+    X_data = X_data.T
+    Y_data = Y_data.T
+
+    Y_data = log(Y_data)
+
+    Y_transform = log(Y_transform)
+    Y_transform = (Y_data - Y_transform.min()) / (Y_transform.max() - Y_transform.min())
+
+    Y_test = (Y_data - Y_data.min()) / (Y_data.max() - Y_data.min())
+    X_data = X_data/X_data.max()
+    
+
+    X_test = X_data
+
+    return X_test, Y_test, Y_transform 
 
 def time_stat(Y_test):
     for idx in range(-18,18):
@@ -145,7 +165,7 @@ def shuffle_stat(Y_test):
     print("Shuffle stat result: %f" % result)
     return result
 
-def old_nn(X_train, X_test, Y_train, Y_test, s_mod):
+def old_nn(X_test, Y_test, s_mod):
     #Loading saved nn model
     model = load_model('%s' % s_mod)
     
@@ -179,6 +199,8 @@ if __name__ == '__main__':
             help="Would you like to use a previous model and test on that (True or False)?")
     ap.add_argument("-m", "--path_to_model", required=False,
             help="path to old nn model")
+    ap.add_argument("-od", "--orig_darm", required=False,
+            help="path to trained model darm data")
     ap.add_argument("-p", "--tt_split", required=True,
             help="test/train split percentage")
     args = vars(ap.parse_args())
@@ -188,7 +210,8 @@ if __name__ == '__main__':
     train_perc =float(args['tt_split'])
     d_trig = np.load(args['dataset'].split(',')[0])
     d_darm = np.load(args['dataset'].split(',')[1])
-    
+    if args['test_only'] == 'True':
+        Y_transform = np.load(args['orig_darm'])
     #d_trig = []
     #d_trig = np.asarray(d_trig)
     #d_darm = []
@@ -209,11 +232,15 @@ if __name__ == '__main__':
     now = datetime.datetime.now() 
 
     #Load data and seperate into training/test sets
-    X_train, X_test, Y_train, Y_test = load_data(d_trig, d_darm, train_perc)
+    if args['test_only'] == 'True':
+        X_test, Y_test, Y_transform = load_data_testing(d_trig, d_darm, Y_transform)
+
+    elif args['test_only'] == 'False':
+        X_train, X_test, Y_train, Y_test, Y_transform = load_data(d_trig, d_darm, train_perc)
 
     #Making predicted DARM RMS time series and retrieving overall score of run
     if args['test_only'] == 'True':
-        predic, perf_score, mod = old_nn(X_train, X_test, Y_train, Y_test, args['path_to_model'])
+        predic, perf_score, mod = old_nn(X_test, Y_transform, args['path_to_model'])
         
     elif args['test_only'] == 'False':
         predic, perf_score, mod, hist = keras_nn(X_train, X_test, Y_train, Y_test)
@@ -224,7 +251,7 @@ if __name__ == '__main__':
     #Plotting the results and other figures of merit 
     if args['test_only'] == 'True':
         hist = []
-        plotter(predic, Y_test, out_dir, now, mod, hist)
+        plotter(predic, Y_transform, out_dir, now, mod, hist)
     elif args['test_only'] == 'False':
         plotter(predic, Y_test, out_dir, now, mod, hist)
 
@@ -232,7 +259,11 @@ if __name__ == '__main__':
     time_stat(Y_test)
     
     #Save the overall score of the run
-    np.save('%s/run_%s/run_score.npy' % (out_dir,now), perf_score)
+    np.save('%s/run_%s/run_score.npy' % (out_dir,now), predic)
+
+    if args['test_only'] == 'False':
+        #Save the original Y_data of this run so that things scale well with later blind testing
+        np.save('%s/run_%s/darm_data.npy' % (out_dir,now), Y_transform)
 
     #Calculating the shuffle statistic
     shuffle_stat(Y_test)    
