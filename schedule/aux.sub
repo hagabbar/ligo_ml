@@ -1,0 +1,11 @@
+universe=vanilla
+executable=./digest_timeseries_data.py
+arguments="--ifo $(ifo) --start-time $(st) --end-time $(et) --channels L1-SUS-DAMP_channels.txt"
+output=/dev/null
+error=aux.$(Process).err
+log=aux.log
+accounting_group = ligo.dev.o2.detchar.explore.test
+RequestMemory=4000
+RequestCpus=4
+getenv=True
+queue 1
