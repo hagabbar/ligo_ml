@@ -14,15 +14,24 @@ def get_science_segments(ifo, st, et, min_length=1800):
     bad_segs=[flg for flg in scimode.active if abs(flg) <= min_length]
     for flg in bad_segs:
         scimode.active.remove(flg)
-    # Force all segments to be even length
+    # Force all segments to be even length and not greater than 20000 seconds
     for idx,flg in enumerate(scimode.active):
-        if not abs(flg) % 2 == 0 and abs(flg) >= 20000:
-            scimode.active[idx]=type(flg)(flg.start,(flg.end-1)/2)
-            scimode.active[idx]=type(flg)((flg.end-1)/2,flg.end-1)
-        if not abs(flg) % 2 == 0 and abs(flg) < 20000:
+        if not abs(flg) % 2 == 0:
             scimode.active[idx]=type(flg)(flg.start,flg.end-1)
-    print scimode
-    sys.exit()
+
+
+#        if not abs(flg) % 2 == 0 and abs(flg) >= 60000:
+#            scimode.active[idx]=type(flg)(flg.start,(flg.end-1)/4)
+#            scimode.active[idx]=type(flg)((flg.end-1)/4,(flg.end-1)/2)
+#            scimode.active[idx]=type(flg)((flg.end-1)/2,(flg.end-1)/(4/3))
+#            scimode.active[idx]=type(flg)((flg.end-1)/(4/3),(flg.end-1))
+#        elif not abs(flg) % 2 == 0 and abs(flg) >= 20000:
+#            scimode.active[idx]=type(flg)(flg.start,(flg.end-1)/2)
+#            scimode.active[idx]=type(flg)((flg.end-1)/2,flg.end-1)
+#        elif not abs(flg) % 2 == 0 and abs(flg) < 20000:
+#            scimode.active[idx]=type(flg)(flg.start,flg.end-1)
+#    print scimode
+#    sys.exit()
     return scimode
 
 if __name__ == "__main__":
