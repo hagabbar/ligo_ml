@@ -90,18 +90,19 @@ def plotter(run_num, predic, Y_test, out_dir, now, model, hist):
     np.save('%s/run_%s/hist.npy' % (out_dir,now), hist)
 
     print 'plotting training metrics'
-    print hist.keys()
-    for i, metric in enumerate(['loss', 'acc']):
-        mname = metric.replace('acc', 'accuracy')
-        pl.figure(run_num+i)
-        pl.plot(hist[metric], label='Training', alpha=0.4)
-        #pl.plot(hist['val_'+metric], label='Validation', alpha=0.4)
-        pl.legend(frameon=True, loc='center right')
-        pl.xlabel('Epoch')
-        pl.ylabel(mname.replace('_', ' '))
-        pl.ylim(ymin=0.)
-        pl.savefig('%s/run_%s/%s_vs_epoch.png' % (out_dir, now, mname[0:4]))
-        pl.close()
+    if hist != []:
+        print hist.keys()
+        for i, metric in enumerate(['loss', 'acc']):
+            mname = metric.replace('acc', 'accuracy')
+            pl.figure(run_num+i)
+            pl.plot(hist[metric], label='Training', alpha=0.4)
+            #pl.plot(hist['val_'+metric], label='Validation', alpha=0.4)
+            pl.legend(frameon=True, loc='center right')
+            pl.xlabel('Epoch')
+            pl.ylabel(mname.replace('_', ' '))
+            pl.ylim(ymin=0.)
+            pl.savefig('%s/run_%s/%s_vs_epoch.png' % (out_dir, now, mname[0:4]))
+            pl.close()
 
     #Comparing RMS pred vs. True RMS
     pl.figure(run_num)
@@ -139,40 +140,76 @@ def plotter(run_num, predic, Y_test, out_dir, now, model, hist):
     pl.savefig('%s/run_%s/comb_scat.png' % (out_dir,now))
     pl.close()
 
-def load_data(d_trig,d_darm,t_perc):
-    #Combining aux channel data into one array and loading darm data into one array
-    Y_data = np.load(d_darm)
-    for idx,fi in enumerate(d_trig):
-        if idx == 0:
-            X_data = np.load(d_trig[idx])
-        elif idx > 0:
-            X_data = np.vstack((X_data,np.load(d_trig[idx])))
+def load_data(d_trig,d_darm,t_perc,regress,listOfGlitchesi):
+    #Can only run over one lockstretch as of right now. Will add in multi lockstretch functionality later
+    if regress == 'trig':
+        for idx, fi in enumerate(d_darm):
+            s_time = int(d_darm[idx].split('/')[-1].split('.')[0].split('-')[2]) #start time
+            dur = int(d_darm[idx].split('/')[-1].split('.')[0].split('-')[2]) #duration
+            Y_data = []
+            g_array = np.loadtxt(listOfGlitches[0])[:,1] #assume list of glitches is just one long file (Aren't that many of type of glitch)
+            Y_data = np.zeros(dur)
+            for ti in range(0,len(g_array)):
+                idx = int(g_array[ti]) - s_time
+                if idx > len(Y_data) or idx < 0:
+                    continue
+                else:
+                    Y_data[idx] = 1
+            
+            
+        for idx,fi in enumerate(d_trig):
+            if idx == 0:
+                X_data = np.load(d_trig[idx])
+            elif idx > 0:
+                X_data = np.vstack((X_data,np.load(d_trig[idx])))
+  
+        #Initializing parameters
+        X_data = X_data.T       #[:,246:269]
+        Y_data = Y_data.T
 
-    #Creating a mask
-    Y_data = Y_data
-    mask = Y_data < 8      #<1.2
-    Y_data = Y_data[mask]
-    X_data = X_data[:,mask]
+        Y_transform = Y_data
 
-    #Initializing parameters
-    X_data = X_data.T       #[:,246:269]
-    Y_data = Y_data.T
-    print Y_data.shape
+        #Defining training and testing sets
+        X_train, X_test = X_data[:int(len(X_data)*t_perc),:]/X_data[:int(len(X_data)*t_perc),:].max(), X_data[int(len(X_data)*t_perc):len(X_data),:]/X_data[int(len(X_data)*t_perc):len(X_data),:].max()
+        Y_train, Y_test = Y_data[:int(len(X_data)*t_perc)], Y_data[int(len(X_data)*t_perc):len(X_data)]
+
+    elif regress == 'blrms':
+        for idx,fi in enumerate(d_trig):
+            if idx == 0:
+                X_data = np.load(d_trig[idx])
+            elif idx > 0:
+                X_data = np.vstack((X_data,np.load(d_trig[idx])))
+
+        #Combining aux channel data into one array and loading darm data into one array
+        Y_data = np.load(d_darm)
+
+        #Creating a mask
+        Y_data = Y_data
+        mask = Y_data < 1000000    #<1.2
+        Y_data = Y_data[mask]
+        X_data = X_data[:,mask]
+
+        #Initializing parameters
+        X_data = X_data.T       #[:,246:269]
+        Y_data = Y_data.T
+        print Y_data.shape
      
-    Y_transform = Y_data
+        Y_transform = Y_data
 
-    Y_data = log(Y_data)
-    Y_data = (Y_data - Y_data.min()) / (Y_data.max() - Y_data.min())
+        Y_data = log(Y_data)
+        Y_data = (Y_data - Y_data.min()) / (Y_data.max() - Y_data.min())
 
-    #Defining training and testing sets
-    X_train, X_test = X_data[:int(len(X_data)*t_perc),:]/X_data[:int(len(X_data)*t_perc),:].max(), X_data[int(len(X_data)*t_perc):len(X_data),:]/X_data[int(len(X_data)*t_perc):len(X_data),:].max()
-    Y_train, Y_test = Y_data[:int(len(X_data)*t_perc)], Y_data[int(len(X_data)*t_perc):len(X_data)]
+        #Defining training and testing sets
+        X_train, X_test = X_data[:int(len(X_data)*t_perc),:]/X_data[:int(len(X_data)*t_perc),:].max(), X_data[int(len(X_data)*t_perc):len(X_data),:]/X_data[int(len(X_data)*t_perc):len(X_data),:].max()
+        Y_train, Y_test = Y_data[:int(len(X_data)*t_perc)], Y_data[int(len(X_data)*t_perc):len(X_data)]
 
     return X_train, X_test, Y_train, Y_test, Y_transform
 
-def load_data_testing(d_trig, d_darm, Y_transform):
+def load_data_testing(d_trig, d_darm, Y_transform, regress):
+
     #Combining aux channel data into one array and loading darm data into one array
     Y_data = np.load(d_darm)
+
     for idx,fi in enumerate(d_trig):
         if idx == 0:
             X_data = np.load(d_trig[idx])
@@ -181,7 +218,7 @@ def load_data_testing(d_trig, d_darm, Y_transform):
 
     #Initializing parameters
     X_data = X_data.T
-    Y_data = np.load(Y_data).T
+    Y_data = Y_data.T
 
     Y_data = log(Y_data)
 
@@ -263,6 +300,10 @@ if __name__ == '__main__':
         help="Amount of Gaussian dropout noise to use in training. Default 0 (no noise)")
     ap.add_argument("-u", "--usertag", required=False, default=cur_time, type=str,
             help="label for given run")
+    ap.add_argument("--regress-on", type=str, default='blrms',
+        help="What would you like to predict on? (blrms,trig)")
+    ap.add_argument("--list-times", required=False, nargs='+',
+        help="If regressing on time of glitch, then provide a list of glitch times in a .txt format. You may provide multiple files.")
     args = ap.parse_args()
 
 
@@ -271,7 +312,10 @@ if __name__ == '__main__':
     d_trig = args.aux_dataset    
     epochs = args.epochs
     b_size = args.batch_size
-    d_darm = args.darm_dataset[0]
+    d_darm = args.darm_dataset
+    listOfGlitches = args.list_times
+    
+    regress = args.regress_on
     if args.test_only == 'True':
         Y_transform = np.load(args.orig_darm)
     #d_trig = []
@@ -296,10 +340,10 @@ if __name__ == '__main__':
 
     #Load data and seperate into training/test sets
     if args.test_only == 'True':
-        X_test, Y_test, Y_transform = load_data_testing(d_trig, d_darm, Y_transform)
+        X_test, Y_test, Y_transform = load_data_testing(d_trig, d_darm, Y_transform, regress, listOfGlitches)
 
     elif args.test_only == 'False':
-        X_train, X_test, Y_train, Y_test, Y_transform = load_data(d_trig, d_darm, train_perc)
+        X_train, X_test, Y_train, Y_test, Y_transform = load_data(d_trig, d_darm, train_perc, regress, listOfGlitches)
 
     #Making predicted DARM RMS time series and retrieving overall score of run
     if args.test_only == 'True':

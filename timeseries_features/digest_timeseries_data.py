@@ -8,7 +8,7 @@ import scipy.signal as sig
 
 from gwpy.timeseries import TimeSeries
 from gwpy.frequencyseries import FrequencySeries
-from gwpy.segments import DataQualityFlag
+from gwpy.segments import DataQualityFlag,Segment
 
 import fir
 
