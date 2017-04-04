@@ -32,29 +32,22 @@ def fir_helper(data, freqs, resps, pad_sec, new_sample_rate=None, deriv=False):
  
     return apply_fir(data,filt,new_sample_rate=new_sample_rate,deriv=deriv)
 
-def osem_position(osem_data, pad_sec=256, new_sample_rate=None):
+def osem_position(osem_data, pad_sec=64, new_sample_rate=None):
     nyquist=osem_data.sample_rate.value/2.
-    if new_sample_rate:
-        fmax, new_nyq = 0.9*new_sample_rate/2., new_sample_rate/2.
-    else:
-        fmax, new_nyq = 10.,12.
+    assert new_sample_rate >= 16
     result = fir_helper(osem_data,
-                        [0.,0.01,0.02,fmax,new_nyq,nyquist],
-                        [0.,1.e-6,1.,1.,1.e-6,0.],
+                        [0.,0.04/nyquist,0.08/nyquist,7.2/nyquist,8./nyquist,1.],
+                        [0.,1.e-4,1.,1.,1.e-6,0.],
                         pad_sec=pad_sec,
                         new_sample_rate=new_sample_rate, deriv=False)
     return result
 
 def osem_velocity(osem_data, pad_sec=256, new_sample_rate=None):
     nyquist=osem_data.sample_rate.value/2.
-    if new_sample_rate:
-        fmax, new_nyq = 0.9*new_sample_rate/2., new_sample_rate/2.
-    else:
-        fmax, new_nyq = 10.,12.
-    fmid = sqrt(0.02*fmax)
+    assert new_sample_rate >= 16
     result = fir_helper(osem_data,
-                        [0.,0.01,0.02,fmid,fmax,new_nyq,nyquist],
-                        [0.,1.e-6,2*pi*0.02,2*pi*fmid,2*pi*fmax,1.e-6,0.],
+                        [0.,0.04/nyquist,0.08/nyquist,7.2/nyquist,8./nyquist,1.],
+                        [0.,1.e-4,2.*pi*0.08,2.*pi*7.2,1.e-5,0.],
                         pad_sec=pad_sec,
                         new_sample_rate=new_sample_rate, deriv=True)
     return result
