@@ -25,7 +25,9 @@ def apply_fir(data, taps, new_sample_rate=None, deriv=False):
                         epoch=data.epoch.gps+pad_sec)
 
 def fir_helper(data, freqs, resps, pad_sec, new_sample_rate=None, deriv=False):
-    srate=data.sample_rate.value
+    srate=data.sample_rate.value 
+    print srate
+    print freqs
     filt=sig.firwin2(int(2*pad_sec*srate),
                         freqs, resps,
                         window='hann',nyq=srate/2.)
@@ -39,7 +41,7 @@ def osem_position(osem_data, pad_sec=64, new_sample_rate=None):
                         [0.,0.04,0.08,7.2,nyquist],
                         [0.,1.e-4,1.,1.,0.],
                         pad_sec=pad_sec,
-                        new_sample_rate=new_sample_rate, deriv=False)
+                        new_sample_rate=16, deriv=False) #set back new_sample_rate = new_sample_rate when done debugging
     return result
 
 def osem_velocity(osem_data, pad_sec=64, new_sample_rate=None):

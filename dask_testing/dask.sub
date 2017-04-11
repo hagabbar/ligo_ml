@@ -1,0 +1,11 @@
+universe=vanilla
+executable=./worker.sh
+arguments=10.12.123.1:8786
+output=cndr.out
+error=cndr.err
+accounting_group = ligo.dev.o2.detchar.explore.test
+accounting_group_user = hunter.gabbard
+RequestMemory=4000
+getenv=True
+queue 400
+
