@@ -36,6 +36,7 @@ def keras_nn(learning_rate, epochs, b_size, X_train, X_test, Y_train, Y_test):
     drop_rate = 0.2
     ret_rate = 1 - drop_rate
     act='relu'
+
     #Compiling Neural Network
     model = Sequential()
     model.add(Dense(int(X_train.shape[1]/ret_rate), input_dim=X_train.shape[1]))
@@ -116,8 +117,8 @@ def plotter(run_num, predic, Y_test, out_dir, now, model, hist):
 
     #RMS plot
     pl.figure(run_num)
-    pl.plot(predic[:300], alpha=0.4, label='predicted')
-    pl.plot(Y_test[:300], alpha=0.4, label='True')
+    pl.plot(predic[:4800], alpha=0.4, label='predicted')
+    pl.plot(Y_test[:4800], alpha=0.4, label='True')
     pl.legend()
     pl.savefig('%s/run_%s/RMS_timeseries_600s.png' % (out_dir,now))
     pl.close()
@@ -152,7 +153,7 @@ def load_data(d_trig,d_darm,t_perc,regress,listOfGlitches):
             Y_data = np.zeros(dur)
             for ti in range(0,len(g_array)):
                 idx = int(g_array[ti]) - s_time
-                if idx > len(Y_data) or idx < 0:
+                if idx > len(Y_data)/16 or idx < 0:
                     continue
                 else:
                     Y_data[idx] = 1
@@ -197,21 +198,20 @@ def load_data(d_trig,d_darm,t_perc,regress,listOfGlitches):
 
         #Combining aux channel data into one array and loading darm data into one array
         print('Loading darm features...')
-        Y_data = np.load(d_darm)
+        Y_data = np.load(d_darm[idx])
 
         print X_data.shape
-        print Y_data.shape
-        sys.exit()
+        print Y_data[0:260096].shape
 
         #Creating a mask
-        Y_data = Y_data
-        mask = Y_data < 1000000    #<1.2
-        Y_data = Y_data[mask]
-        X_data = X_data[:,mask]
+        Y_data = Y_data[0:260096]
+        #mask = Y_data < 1000000    #<1.2
+        #Y_data = Y_data[mask]
+        #X_data = X_data[:,mask]
 
         #Initializing parameters
-        X_data = X_data.T       #[:,246:269]
-        Y_data = Y_data.T
+        X_data = X_data #.T       #[:,246:269]
+        Y_data = Y_data #.T
         print Y_data.shape
      
         Y_transform = Y_data
