@@ -71,6 +71,6 @@ if __name__ == "__main__":
     et=int(sys.argv[3])
 
     scimode = get_science_segments(ifo, st, et)
-    scimode = cut_sci_segs(scimode)
+#    scimode = cut_sci_segs(scimode)
     scimode.write('%s-SCISEGS-%u-%u.h5'%(ifo,st,et-st))
 
