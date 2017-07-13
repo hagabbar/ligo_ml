@@ -1,4 +1,4 @@
-#Deep Learning Regression algorithm to predict scattering noise in aLIGO Detectors
+#Deep learning regression algorithm to predict noise in aLIGO detectors
 #Author: Hunter Gabbard
 #Max Planck Institute for Gravitational Physics
 # %run neural_net.py -d data_Dec2-Dec3.hdf
@@ -31,9 +31,8 @@ config.gpu_options.allow_growth=True
 sess = tf.Session(config=config)
 
 
-def keras_nn(learning_rate, epochs, b_size, X_train, X_test, Y_train, Y_test):
+def keras_nn(learning_rate, epochs, b_size, X_train, X_test, Y_train, Y_test, drop_rate):
     print "Training..."
-    drop_rate = 0.2
     ret_rate = 1 - drop_rate
     act='relu'
 
@@ -54,15 +53,15 @@ def keras_nn(learning_rate, epochs, b_size, X_train, X_test, Y_train, Y_test):
     model.add(Activation(act))
     model.add(GaussianDropout(drop_rate))
 
-    model.add(Dense(int(X_train.shape[1]/ret_rate)))
-    model.add(BatchNormalization())
-    model.add(Activation(act))
-    model.add(GaussianDropout(drop_rate))
+    #model.add(Dense(int(X_train.shape[1]/ret_rate)))
+    #model.add(BatchNormalization())
+    #model.add(Activation(act))
+    #model.add(GaussianDropout(drop_rate))
 
-    model.add(Dense(int(X_train.shape[1]/ret_rate)))
-    model.add(BatchNormalization())
-    model.add(Activation(act))
-    model.add(GaussianDropout(drop_rate))
+    #model.add(Dense(int(X_train.shape[1]/ret_rate)))
+    #model.add(BatchNormalization())
+    #model.add(Activation(act))
+    #model.add(GaussianDropout(drop_rate))
 
     model.add(Dense(1))
     model.compile(loss='mean_squared_error', optimizer='adam', metrics=["accuracy"])
@@ -117,10 +116,10 @@ def plotter(run_num, predic, Y_test, out_dir, now, model, hist):
 
     #RMS plot
     pl.figure(run_num)
-    pl.plot(predic[:4800], alpha=0.4, label='predicted')
-    pl.plot(Y_test[:4800], alpha=0.4, label='True')
+    pl.plot(predic[:64000], alpha=0.4, label='predicted')
+    pl.plot(Y_test[:64000], alpha=0.4, label='True')
     pl.legend()
-    pl.savefig('%s/run_%s/RMS_timeseries_600s.png' % (out_dir,now))
+    pl.savefig('%s/run_%s/RMS_timeseries_4000s.png' % (out_dir,now))
     pl.close()
 
     #Plotting the accuracy
@@ -135,38 +134,50 @@ def plotter(run_num, predic, Y_test, out_dir, now, model, hist):
     pl.scatter(predic,Y_test, s=10, alpha=0.4)
     pl.xlim(0,1)
     pl.ylim(0,1)
-    pl.plot(linspace(0,1,100), linspace(0,1,100))
+    #pl.plot(linspace(0,1,100), linspace(0,1,100))
     pl.title('Actual vs. Predicted')
     pl.xlabel('Predicted')
     pl.ylabel('Actual')
     pl.savefig('%s/run_%s/comb_scat.png' % (out_dir,now))
     pl.close()
 
-def load_data(d_trig,d_darm,t_perc,regress,listOfGlitches):
+def load_data(d_trig,d_darm,t_perc,regress,listOfGlitches,srate):
     #Can only run over one lockstretch as of right now. Will add in multi lockstretch functionality later
     if regress == 'trig':
         for idx, fi in enumerate(d_darm):
             s_time = int(d_darm[idx].split('/')[-1].split('.')[0].split('-')[2]) #start time
             dur = int(d_darm[idx].split('/')[-1].split('.')[0].split('-')[2]) #duration
             Y_data = []
-            g_array = np.loadtxt(listOfGlitches[0])[:,1] #assume list of glitches is just one long file (Aren't that many of type of glitch)
-            Y_data = np.zeros(dur)
+            g_array = np.loadtxt(listOfGlitches[0])[:,0] #assume list of glitches is just one long file (Aren't that many of type of glitch)
+            Y_data = np.zeros(dur*srate) 
             for ti in range(0,len(g_array)):
                 idx = int(g_array[ti]) - s_time
-                if idx > len(Y_data)/16 or idx < 0:
+                if idx > len(Y_data)/srate or idx < 0:
                     continue
                 else:
-                    Y_data[idx] = 1
-            
-            
+                    Y_data[(idx*srate)-8:(idx*srate)+8] = 1
         for idx,fi in enumerate(d_trig):
+            print('Getting data from: %s' % fi)
+            darm_file = pickle.load(open(d_trig[idx],'rb'))
             if idx == 0:
-                X_data = np.load(d_trig[idx])
+                for idx2,line in enumerate(darm_file):
+                    print('Loading channel: %s' % darm_file[idx2][0])
+                    if idx2 == 0:
+                        X_data = darm_file[idx2][1]
+                    else:
+                        X_data = np.vstack((X_data,darm_file[idx2][1]))
             elif idx > 0:
-                X_data = np.vstack((X_data,np.load(d_trig[idx])))
-  
+                for idx2,line in enumerate(darm_file):
+                    print('Loading channel: %s' % darm_file[idx2][0])
+                    if idx2 == 0:
+                        X_data_tmp = darm_file[idx2][1]
+                    else:
+                        X_data_tmp = np.vstack((X_data_tmp,darm_file[idx2][1]))
+                X_data = np.hstack((X_data,X_data_tmp))
+        X_data = X_data.T 
+ 
         #Initializing parameters
-        X_data = X_data.T       #[:,246:269]
+        X_data = X_data #.T       #[:,246:269]
         Y_data = Y_data.T
 
         Y_transform = Y_data
@@ -194,26 +205,22 @@ def load_data(d_trig,d_darm,t_perc,regress,listOfGlitches):
                     else:
                         X_data_tmp = np.vstack((X_data_tmp,darm_file[idx2][1]))
                 X_data = np.hstack((X_data,X_data_tmp))
-        X_data = X_data.T
 
         #Combining aux channel data into one array and loading darm data into one array
         print('Loading darm features...')
-        Y_data = np.load(d_darm[idx])
-
-        print X_data.shape
-        print Y_data[0:260096].shape
+        Y_data = np.load(d_darm[0])
 
         #Creating a mask
-        Y_data = Y_data[0:260096]
         #mask = Y_data < 1000000    #<1.2
         #Y_data = Y_data[mask]
         #X_data = X_data[:,mask]
 
         #Initializing parameters
-        X_data = X_data #.T       #[:,246:269]
+        X_data = X_data.T    #[:,246:269]
         Y_data = Y_data #.T
-        print Y_data.shape
-     
+
+
+
         Y_transform = Y_data
 
         Y_data = log(Y_data)
@@ -223,22 +230,50 @@ def load_data(d_trig,d_darm,t_perc,regress,listOfGlitches):
         X_train, X_test = X_data[:int(len(X_data)*t_perc),:]/X_data[:int(len(X_data)*t_perc),:].max(), X_data[int(len(X_data)*t_perc):len(X_data),:]/X_data[int(len(X_data)*t_perc):len(X_data),:].max()
         Y_train, Y_test = Y_data[:int(len(X_data)*t_perc)], Y_data[int(len(X_data)*t_perc):len(X_data)]
 
+
     return X_train, X_test, Y_train, Y_test, Y_transform
 
 def load_data_testing(d_trig, d_darm, Y_transform, regress):
 
     #Combining aux channel data into one array and loading darm data into one array
-    Y_data = np.load(d_darm)
+    print('Loading darm features...')
+    Y_data = np.load(d_darm[0])
 
     for idx,fi in enumerate(d_trig):
+        print('Getting data from: %s' % fi)
+        darm_file = pickle.load(open(d_trig[idx],'rb'))
         if idx == 0:
-            X_data = np.load(d_trig[idx])
+            for idx2,line in enumerate(darm_file):
+                try:
+                    print('Loading channel: %s' % darm_file[idx2][0])
+                    if idx2 == 0:
+                        X_data = darm_file[idx2][1]
+                    else:
+                        X_data = np.vstack((X_data,darm_file[idx2][1]))
+                except IndexError:
+                    if idx2 == 0:
+                        X_data = np.zeros((2,len(darm_file[idx2+1][1])))
+                    else:
+                        X_data = np.vstack((X_data,np.zeros((2,len(X_data[idx2])))))
         elif idx > 0:
-            X_data = np.vstack((X_data,np.load(d_trig[idx])))
+            for idx2,line in enumerate(darm_file):
+                try:
+                    print('Loading channel: %s' % darm_file[idx2][0])
+                    if idx2 == 0:
+                        X_data_tmp = darm_file[idx2][1]
+                    else:
+                        X_data_tmp = np.vstack((X_data_tmp,darm_file[idx2][1]))
+                except IndexError:
+                    if idx2 == 0:
+                        X_data_tmp = np.zeros((2,len(darm_file[idx2+1][1])))
+                    else:
+                        X_data_tmp = np.vstack((X_data_tmp,np.zeros((2,len(X_data_tmp[idx2])))))
+            X_data = np.hstack((X_data,X_data_tmp))
 
     #Initializing parameters
     X_data = X_data.T
-    Y_data = Y_data.T
+    X_data = X_data[:,246:281]
+    Y_data = Y_data
 
     Y_data = log(Y_data)
 
@@ -272,7 +307,7 @@ def shuffle_stat(Y_test):
 def old_nn(learning_rate, epochs, X_test, Y_test, s_mod):
     #Loading saved nn model
     model = load_model('%s' % s_mod)
-    
+
     #Predicitng on test set
     print("[INFO] Predicting on test set...")
     score = model.predict(X_test, batch_size=32)
@@ -316,8 +351,10 @@ if __name__ == '__main__':
             help="If performing multiple runs on same machine, specify a unique number for each run (must be greater than zero)")
     ap.add_argument("--learning-rate", type=float, default=0.01,
         help="Learning rate. Default 0.01")
-    ap.add_argument("--dropout-fraction", type=float, default=0.,
-        help="Amount of Gaussian dropout noise to use in training. Default 0 (no noise)")
+    ap.add_argument("--sample-rate", type=float, default=1., required=True,
+        help="Sampling rate of input timeseries data. Default 1.")
+    ap.add_argument("--dropout-fraction", type=float, default=0.2,
+        help="Amount of Gaussian dropout noise to use in training. Default 0.2 (20 percent dropout per hidden layer)")
     ap.add_argument("-u", "--usertag", required=False, default=cur_time, type=str,
             help="label for given run")
     ap.add_argument("--regress-on", type=str, default='blrms',
@@ -334,6 +371,8 @@ if __name__ == '__main__':
     b_size = args.batch_size
     d_darm = args.darm_dataset
     listOfGlitches = args.list_times
+    drop_rate = args.dropout_fraction
+    srate = args.sample_rate
     
     regress = args.regress_on
     if args.test_only == 'True':
@@ -360,17 +399,17 @@ if __name__ == '__main__':
 
     #Load data and seperate into training/test sets
     if args.test_only == 'True':
-        X_test, Y_test, Y_transform = load_data_testing(d_trig, d_darm, Y_transform, regress, listOfGlitches)
+        X_test, Y_test, Y_transform = load_data_testing(d_trig, d_darm, Y_transform, regress)
 
     elif args.test_only == 'False':
-        X_train, X_test, Y_train, Y_test, Y_transform = load_data(d_trig, d_darm, train_perc, regress, listOfGlitches)
+        X_train, X_test, Y_train, Y_test, Y_transform = load_data(d_trig, d_darm, train_perc, regress, listOfGlitches, srate)
 
     #Making predicted DARM RMS time series and retrieving overall score of run
     if args.test_only == 'True':
         predic, perf_score, mod = old_nn(args.learning_rate, epochs, X_test, Y_transform, args.path_to_model)
         
     elif args.test_only == 'False':
-        predic, perf_score, mod, hist = keras_nn(args.learning_rate, epochs, b_size, X_train, X_test, Y_train, Y_test)
+        predic, perf_score, mod, hist = keras_nn(args.learning_rate, epochs, b_size, X_train, X_test, Y_train, Y_test, drop_rate)
 
     #Make output directory
     os.makedirs('%s/run_%s' % (out_dir,now))

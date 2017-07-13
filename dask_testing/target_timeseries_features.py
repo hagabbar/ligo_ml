@@ -18,6 +18,7 @@ parser.add_argument('--ifo',type=str,required=True)
 parser.add_argument('-f','--segment-file',type=str)
 parser.add_argument('-s','--start-time',type=int)
 parser.add_argument('-e','--end-time',type=int)
+parser.add_argument('-p','--path', help='path to output directory', required=False)
 
 args = parser.parse_args()
 
@@ -44,7 +45,7 @@ frtype=ifo+"_HOFT_C00"
 
 # Get DARM BLRMS
 srate=16384.
-filt=sig.firwin(int(2*pad*srate),[25.,59.9],nyq=srate/2.,window='hann',pass_zero=False)
+filt=sig.firwin(int(2*pad*srate),[65.,115],nyq=srate/2.,window='hann',pass_zero=False)
 darm_blrms_chunks=[]
 for t1,t2 in chunk_segments(segs,chunk,pad):
     print 'Getting chunk', t1, t2
@@ -55,5 +56,8 @@ for t1,t2 in chunk_segments(segs,chunk,pad):
 
 # Turn into a big array and dump to a file
 full_data=array(concatenate(darm_blrms_chunks))
-save("%s-DARMBLRMS-%u-%u.npy"%(ifo,st,et-st),full_data)
-
+if args.path:
+    save("%s/%s-DARMBLRMS-%u-%u.npy"%(args.path,ifo,st,et-st),full_data)
+else:
+    save("%s-DARMBLRMS-%u-%u.npy"%(ifo,st,et-st),full_data)
+print 'You are done!'
